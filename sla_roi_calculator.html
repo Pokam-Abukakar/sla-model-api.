@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLA Breach ROI Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0B0F1A;
+    --surface:   #111827;
+    --surface2:  #1a2236;
+    --border:    #1f2f4a;
+    --accent:    #00D4AA;
+    --accent2:   #3B82F6;
+    --danger:    #F43F5E;
+    --warn:      #F59E0B;
+    --text:      #E2E8F0;
+    --muted:     #64748B;
+    --subtle:    #1e2d42;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 0 0 60px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .logo-dot {
+    width: 10px; height: 10px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 12px var(--accent);
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 15px; font-weight: 500; letter-spacing: 0.02em; }
+  header span { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+  /* ── LAYOUT ── */
+  .page { max-width: 1100px; margin: 0 auto; padding: 48px 40px 0; }
+
+  /* ── HERO READOUT ── */
+  .hero {
+    text-align: center;
+    padding: 48px 24px 40px;
+    position: relative;
+  }
+  .hero-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .hero-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(52px, 8vw, 88px);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--accent);
+    transition: color 0.4s;
+    letter-spacing: -0.02em;
+  }
+  .hero-value.warn { color: var(--warn); }
+  .hero-value.danger { color: var(--danger); }
+  .hero-sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+  .hero-glow {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 320px; height: 200px;
+    background: radial-gradient(ellipse, rgba(0,212,170,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    transition: background 0.4s;
+  }
+
+  /* ── GRID ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    header { padding: 16px 20px; }
+    .page { padding: 28px 20px 0; }
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  /* ── SLIDERS ── */
+  .slider-group { margin-bottom: 24px; }
+  .slider-group:last-child { margin-bottom: 0; }
+  .slider-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .slider-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .slider-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 80px;
+    text-align: right;
+  }
+  .slider-desc { font-size: 11.5px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+    cursor: pointer;
+    position: relative;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px rgba(0,212,170,0.5);
+    cursor: pointer;
+    transition: box-shadow 0.2s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb {
+    box-shadow: 0 0 18px rgba(0,212,170,0.7);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+  }
+  .track-fill {
+    position: relative;
+    margin-bottom: 4px;
+  }
+
+  /* ── STAT TILES ── */
+  .stat-tile {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.04em; }
+  .stat-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .stat-val.green { color: var(--accent); }
+  .stat-val.red   { color: var(--danger); }
+  .stat-val.blue  { color: var(--accent2); }
+  .stat-val.warn  { color: var(--warn); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ── WATERFALL CHART ── */
+  .waterfall { margin-top: 8px; }
+  .wf-bar-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .wf-label { font-size: 12px; color: var(--muted); width: 140px; flex-shrink: 0; text-align: right; }
+  .wf-track { flex: 1; height: 28px; background: var(--subtle); border-radius: 4px; overflow: hidden; position: relative; }
+  .wf-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    display: flex; align-items: center; justify-content: flex-end; padding-right: 8px;
+  }
+  .wf-fill span { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--bg); }
+  .wf-amt { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text); width: 90px; text-align: right; }
+
+  /* ── FORMULA BOX ── */
+  .formula-box {
+    background: var(--subtle);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-top: 16px;
+  }
+  .formula-title { font-size: 11px; color: var(--muted); margin-bottom: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .formula-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 2;
+  }
+  .formula-line .hl { color: var(--accent); }
+  .formula-line .hl2 { color: var(--accent2); }
+  .formula-line .hl3 { color: var(--warn); }
+  .formula-line .hl4 { color: var(--danger); }
+
+  /* ── BREAKEVEN ── */
+  .breakeven {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-top: 16px;
+  }
+  .breakeven-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .be-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .be-row:last-child { border-bottom: none; }
+  .be-key { color: var(--muted); }
+  .be-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text); }
+  .be-val.green { color: var(--accent); }
+  .be-val.red { color: var(--danger); }
+
+  /* ── INDUSTRY BAND ── */
+  .industry-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    transition: border-color 0.2s;
+  }
+  .industry-row:hover { border-color: var(--accent2); }
+  .ind-icon {
+    width: 44px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .ind-body { padding: 10px 14px; flex: 1; }
+  .ind-name { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 2px; }
+  .ind-desc { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
+  .ind-mult {
+    padding: 10px 14px;
+    display: flex; align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+    min-width: 80px;
+    justify-content: flex-end;
+  }
+
+  .section-gap { height: 24px; }
+  .row-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    margin-top: 28px;
+  }
+
+  /* ── YEAR PROJECTION ── */
+  .year-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; margin-top: 12px; }
+  .yr-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .yr-bar {
+    width: 100%;
+    background: linear-gradient(180deg, var(--accent) 0%, rgba(0,212,170,0.3) 100%);
+    border-radius: 3px 3px 0 0;
+    transition: height 0.5s cubic-bezier(0.4,0,0.2,1);
+    min-height: 4px;
+  }
+  .yr-label { font-size: 10px; color: var(--muted); }
+  .yr-val { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+  footer {
+    text-align: center;
+    padding: 40px 20px 0;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  footer a { color: var(--accent2); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-dot"></div>
+  <h1>SLA Breach ROI Calculator</h1>
+  <span>IT Service Management — Machine Learning Impact</span>
+</header>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-glow" id="hero-glow"></div>
+    <div class="hero-label">Estimated net annual saving</div>
+    <div class="hero-value" id="hero-val">€0</div>
+    <div class="hero-sub" id="hero-sub">Adjust the sliders below to model your organisation</div>
+  </div>
+
+  <!-- INPUTS -->
+  <p class="row-label">Your inputs</p>
+  <div class="grid-2">
+
+    <div class="card">
+      <div class="card-title">Ticket volume & cost</div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span class="slider-name">Breached tickets per month</span>
+          <span class="slider-val" id="v-tickets">200</span>
+        </div>
+        <div class="slider-desc">How many tickets per month actually breach their SLA in your organisation today.</div>
+        <input type="range" id="s-tickets" min="10" max="2000" step="10" value="200" oninput="update()">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span class="slider-name">Average penalty per breach</span>
+          <span class="slider-val" id="v-penalty">€500</span>
+        </div>
+        <div class="slider-desc">Financial cost of each breach: contract penalty, credit, or internal cost estimate.</div>
+        <input type="range" id="s-penalty" min="50" max="10000" step="50" value="500" oninput="update()">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span class="slider-name">Monthly tool running cost</span>
+          <span class="slider-val" id="v-cost">€50</span>
+        </div>
+        <div class="slider-desc">Render hosting + Twilio + ElevenLabs + n8n cloud per month. Subtract from savings.</div>
+        <input type="range" id="s-cost" min="0" max="2000" step="10" value="50" oninput="update()">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Model performance</div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span class="slider-name">Model recall rate</span>
+          <span class="slider-val" id="v-recall">81%</span>
+        </div>
+        <div class="slider-desc">Of all tickets that will breach, what % does the model correctly flag? (Your model: 81%)</div>
+        <input type="range" id="s-recall" min="10" max="99" step="1" value="81" oninput="update()">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span class="slider-name">Agent action rate</span>
+          <span class="slider-val" id="v-acted">65%</span>
+        </div>
+        <div class="slider-desc">Of flagged tickets, what % does a manager actually act on in time to prevent the breach?</div>
+        <input type="range" id="s-acted" min="10" max="100" step="5" value="65" oninput="update()">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-top">
+          <span class="slider-name">False alert tolerance</span>
+          <span class="slider-val" id="v-precision">74%</span>
+        </div>
+        <div class="slider-desc">Model precision: % of alerts that are genuine risks. Higher = less alert fatigue. (Your model: 74%)</div>
+        <input type="range" id="s-precision" min="10" max="99" step="1" value="74" oninput="update()">
+      </div>
+    </div>
+  </div>
+
+  <!-- FORMULA -->
+  <div class="formula-box">
+    <div class="formula-title">How net saving is calculated</div>
+    <div class="formula-line" id="formula-line"></div>
+  </div>
+
+  <!-- STAT TILES -->
+  <p class="row-label">Monthly breakdown</p>
+  <div class="grid-3">
+    <div class="stat-tile">
+      <div class="stat-label">TICKETS FLAGGED BY MODEL</div>
+      <div class="stat-val blue" id="st-flagged">162</div>
+      <div class="stat-sub" id="st-flagged-sub"></div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">BREACHES PREVENTED</div>
+      <div class="stat-val green" id="st-prevented">105</div>
+      <div class="stat-sub" id="st-prevented-sub"></div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">BREACHES NOT CAUGHT</div>
+      <div class="stat-val red" id="st-missed">95</div>
+      <div class="stat-sub" id="st-missed-sub"></div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">FALSE ALERTS SENT</div>
+      <div class="stat-val warn" id="st-false">42</div>
+      <div class="stat-sub" id="st-false-sub"></div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">GROSS SAVING / MONTH</div>
+      <div class="stat-val green" id="st-gross">€52,650</div>
+      <div class="stat-sub" id="st-gross-sub"></div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">NET SAVING / MONTH</div>
+      <div class="stat-val green" id="st-net">€52,600</div>
+      <div class="stat-sub" id="st-net-sub"></div>
+    </div>
+  </div>
+
+  <!-- WATERFALL -->
+  <p class="row-label">Where the saving comes from</p>
+  <div class="card waterfall" id="waterfall"></div>
+
+  <!-- YEAR PROJECTION -->
+  <p class="row-label">12-month net saving projection</p>
+  <div class="card">
+    <div class="card-title">Cumulative net saving (months 1–12)</div>
+    <div class="year-bars" id="year-bars"></div>
+    <div style="display:flex;gap:6px;margin-top:4px" id="year-labels"></div>
+  </div>
+
+  <!-- BREAKEVEN -->
+  <div class="breakeven">
+    <div class="breakeven-title">Breakeven & payback</div>
+    <div class="be-row"><span class="be-key">Tool running cost / month</span><span class="be-val" id="be-cost"></span></div>
+    <div class="be-row"><span class="be-key">Net saving / month</span><span class="be-val green" id="be-saving"></span></div>
+    <div class="be-row"><span class="be-key">Payback period</span><span class="be-val green">Immediate — savings exceed costs from month 1</span></div>
+    <div class="be-row"><span class="be-key">ROI (Year 1)</span><span class="be-val green" id="be-roi"></span></div>
+  </div>
+
+  <!-- INDUSTRY MULTIPLIERS -->
+  <p class="row-label">How your saving scales across industries</p>
+  <div id="industry-list"></div>
+
+  <hr class="divider">
+  <footer>
+    Built as part of an AI / Machine Learning case study on SLA breach prediction using XGBoost, FastAPI, n8n and Jira Service Management.<br>
+    Recall 81% · Precision 74% · AUC-ROC 0.86 · Trained on 24,918 incident tickets<br><br>
+    <a href="#">Model documentation</a> &nbsp;·&nbsp; <a href="#">GitHub repository</a>
+  </footer>
+
+</div>
+
+<script>
+const industries = [
+  { icon:'🖥️', name:'IT Managed Services (MSP)',     desc:'External SLAs with penalty clauses per contract',         mult:4,  color:'#3B82F6' },
+  { icon:'📡', name:'Telecommunications',             desc:'Regulatory and contractual network fault SLAs',            mult:6,  color:'#10B981' },
+  { icon:'🏦', name:'Financial Services',             desc:'Trading system uptime — minutes matter',                   mult:12, color:'#8B5CF6' },
+  { icon:'🏥', name:'Healthcare IT',                  desc:'EHR / clinical system downtime — patient safety SLAs',    mult:8,  color:'#F43F5E' },
+  { icon:'🛒', name:'Retail & E-Commerce',            desc:'POS / payment SLAs — revenue lost per downtime minute',   mult:10, color:'#F59E0B' },
+  { icon:'🏭', name:'Manufacturing (Industry 4.0)',   desc:'OT/IT convergence — production halt cost per hour',       mult:20, color:'#06B6D4' },
+  { icon:'☁️', name:'Cloud / SaaS Providers',         desc:'Uptime SLA credits trigger automatically on breach',      mult:5,  color:'#EC4899' },
+  { icon:'🏛️', name:'Public Sector / Government IT', desc:'Contract clawbacks and audit findings on ITIL compliance', mult:3,  color:'#84CC16' },
+];
+
+function fmt(n, prefix='€') {
+  if (Math.abs(n) >= 1000000) return prefix + (n/1000000).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1000) return prefix + Math.round(n).toLocaleString('de-DE');
+  return prefix + Math.round(n);
+}
+
+function update() {
+  const tickets   = +document.getElementById('s-tickets').value;
+  const penalty   = +document.getElementById('s-penalty').value;
+  const toolCost  = +document.getElementById('s-cost').value;
+  const recall    = +document.getElementById('s-recall').value / 100;
+  const acted     = +document.getElementById('s-acted').value / 100;
+  const precision = +document.getElementById('s-precision').value / 100;
+
+  // update display values
+  document.getElementById('v-tickets').textContent   = tickets.toLocaleString('de-DE');
+  document.getElementById('v-penalty').textContent   = fmt(penalty);
+  document.getElementById('v-cost').textContent      = fmt(toolCost);
+  document.getElementById('v-recall').textContent    = Math.round(recall*100) + '%';
+  document.getElementById('v-acted').textContent     = Math.round(acted*100) + '%';
+  document.getElementById('v-precision').textContent = Math.round(precision*100) + '%';
+
+  // ── calculations ──
+  const flagged   = Math.round(tickets * recall);
+  const prevented = Math.round(flagged * acted);
+  const missed    = tickets - prevented;
+  // false alerts: flagged tickets that are NOT real breaches
+  // precision = true_positives / (true_positives + false_positives)
+  // flagged = true_positives; so false_positives = flagged * (1-precision)/precision
+  const falseAlerts = Math.round(flagged * (1 - precision) / Math.max(precision, 0.01));
+  const grossSaving = prevented * penalty;
+  const netMonthly  = grossSaving - toolCost;
+  const netAnnual   = netMonthly * 12;
+
+  // ── hero ──
+  const heroEl = document.getElementById('hero-val');
+  heroEl.textContent = fmt(netAnnual);
+  if (netAnnual > 0) {
+    heroEl.className = 'hero-value';
+    document.getElementById('hero-glow').style.background =
+      'radial-gradient(ellipse, rgba(0,212,170,0.08) 0%, transparent 70%)';
+  } else {
+    heroEl.className = 'hero-value danger';
+    document.getElementById('hero-glow').style.background =
+      'radial-gradient(ellipse, rgba(244,63,94,0.08) 0%, transparent 70%)';
+  }
+  document.getElementById('hero-sub').textContent =
+    `${prevented} breaches prevented/month · ${fmt(netMonthly)}/month net · ${fmt(netAnnual)}/year`;
+
+  // ── stat tiles ──
+  document.getElementById('st-flagged').textContent      = flagged.toLocaleString('de-DE');
+  document.getElementById('st-flagged-sub').textContent  = `${Math.round(recall*100)}% of ${tickets} actual breaches`;
+  document.getElementById('st-prevented').textContent    = prevented.toLocaleString('de-DE');
+  document.getElementById('st-prevented-sub').textContent= `${Math.round(acted*100)}% of ${flagged} alerts acted on`;
+  document.getElementById('st-missed').textContent       = missed.toLocaleString('de-DE');
+  document.getElementById('st-missed-sub').textContent   = `Still breach (${Math.round(missed/tickets*100)}% of total)`;
+  document.getElementById('st-false').textContent        = falseAlerts.toLocaleString('de-DE');
+  document.getElementById('st-false-sub').textContent    = `Unnecessary escalations per month`;
+  document.getElementById('st-gross').textContent        = fmt(grossSaving);
+  document.getElementById('st-gross-sub').textContent    = `${prevented} × ${fmt(penalty)} penalty`;
+  const netColor = netMonthly >= 0 ? 'green' : 'red';
+  document.getElementById('st-net').textContent          = fmt(netMonthly);
+  document.getElementById('st-net').className            = `stat-val ${netColor}`;
+  document.getElementById('st-net-sub').textContent      = `After ${fmt(toolCost)} tool costs`;
+
+  // ── formula ──
+  document.getElementById('formula-line').innerHTML =
+    `Net saving = (<span class="hl">${tickets} breaches</span> × <span class="hl">${Math.round(recall*100)}% recall</span> × <span class="hl2">${Math.round(acted*100)}% acted</span> × <span class="hl">${fmt(penalty)}</span>) − <span class="hl3">${fmt(toolCost)} costs</span><br>` +
+    `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= (<span class="hl">${flagged} flagged</span> × <span class="hl2">${prevented/flagged > 0 ? Math.round(acted*100) : 0}% resolved</span> × <span class="hl">${fmt(penalty)}</span>) − <span class="hl3">${fmt(toolCost)}</span><br>` +
+    `&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= <span class="hl">${fmt(grossSaving)} gross</span> − <span class="hl3">${fmt(toolCost)}</span> = <span class="${netMonthly>=0?'hl':'hl4'}">${fmt(netMonthly)}/month</span>`;
+
+  // ── waterfall ──
+  const wfData = [
+    { label:'Total breach cost', val: tickets * penalty, color:'#F43F5E', pct:100 },
+    { label:'Caught by model', val: flagged * penalty, color:'#3B82F6', pct: flagged/tickets*100 },
+    { label:'Resolved by team', val: grossSaving, color:'#00D4AA', pct: prevented/tickets*100 },
+    { label:'Tool costs', val: toolCost, color:'#F59E0B', pct: toolCost/(tickets*penalty)*100 },
+    { label:'Net saving', val: netMonthly, color: netMonthly>=0?'#00D4AA':'#F43F5E', pct: Math.abs(netMonthly)/(tickets*penalty)*100 },
+  ];
+  const maxVal = tickets * penalty;
+  document.getElementById('waterfall').innerHTML =
+    '<div class="card-title">Monthly cost waterfall</div>' +
+    wfData.map(d => `
+      <div class="wf-bar-wrap">
+        <div class="wf-label">${d.label}</div>
+        <div class="wf-track">
+          <div class="wf-fill" style="width:${Math.min(d.pct,100)}%;background:${d.color}">
+            <span>${fmt(d.val)}</span>
+          </div>
+        </div>
+        <div class="wf-amt">${fmt(d.val)}</div>
+      </div>`).join('');
+
+  // ── year bars ──
+  const maxBar = netAnnual > 0 ? netAnnual : Math.abs(netAnnual);
+  const barsEl   = document.getElementById('year-bars');
+  const labelsEl = document.getElementById('year-labels');
+  let barsHtml = '', labelsHtml = '';
+  for (let i = 1; i <= 12; i++) {
+    const cumVal = netMonthly * i;
+    const h = maxBar > 0 ? Math.max(4, Math.abs(cumVal) / maxBar * 72) : 4;
+    const col = cumVal >= 0 ? 'linear-gradient(180deg, #00D4AA 0%, rgba(0,212,170,0.3) 100%)' : 'linear-gradient(180deg, #F43F5E 0%, rgba(244,63,94,0.3) 100%)';
+    barsHtml += `<div class="yr-bar-wrap">
+      <div class="yr-val">${fmt(cumVal,'')}</div>
+      <div class="yr-bar" style="height:${h}px;background:${col}"></div>
+    </div>`;
+    labelsHtml += `<div style="flex:1;text-align:center;font-size:10px;color:var(--muted)">M${i}</div>`;
+  }
+  barsEl.innerHTML = barsHtml;
+  labelsEl.innerHTML = labelsHtml;
+
+  // ── breakeven ──
+  document.getElementById('be-cost').textContent   = fmt(toolCost) + '/month';
+  document.getElementById('be-saving').textContent = fmt(netMonthly) + '/month';
+  const roi = toolCost > 0 ? Math.round((netAnnual / (toolCost*12)) * 100) : 9999;
+  document.getElementById('be-roi').textContent    = roi > 9000 ? '∞ (near-zero cost base)' : roi + 'x return on tool spend';
+
+  // ── industries ──
+  document.getElementById('industry-list').innerHTML = industries.map(ind => {
+    const scaled = fmt(netAnnual * ind.mult);
+    return `<div class="industry-row">
+      <div class="ind-icon">${ind.icon}</div>
+      <div class="ind-body">
+        <div class="ind-name">${ind.name}</div>
+        <div class="ind-desc">${ind.desc}</div>
+      </div>
+      <div class="ind-mult" style="color:${ind.color}">${ind.mult}× → ${scaled}/yr</div>
+    </div>`;
+  }).join('');
+}
+
+update();
+</script>
+</body>
+</html>
