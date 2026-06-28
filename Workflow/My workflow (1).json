@@ -1,0 +1,339 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "events": [
+          "jira:issue_created",
+          "jira:issue_updated"
+        ],
+        "additionalFields": {
+          "filter": "project = MLS AND status NOT IN (Closed, Resolved)"
+        }
+      },
+      "type": "n8n-nodes-base.jiraTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        -96
+      ],
+      "id": "306dfd33-1f4a-4929-a8eb-b1f36f080650",
+      "name": "Jira Trigger",
+      "webhookId": "aa8c6ed3-0559-4c93-90ed-1482505ca38d",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "UTPXB5nLELjoJ3Kx",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const result = (() => {\n  const raw    = $input.item.json;\n  const issue  = raw?.issue ?? raw;\n  const fields = issue?.fields ?? {};\n  const key    = issue?.key ?? 'UNKNOWN';\n\n  const sel = (f) => f?.value ?? f?.name ?? null;\n\n  const priority         = sel(fields.priority)            ?? '3 - Moderate';\n  const impact           = sel(fields.customfield_10004)   ?? '2 - Medium';\n  const urgency          = sel(fields.customfield_10050)   ?? '2 - Medium';\n  const knowledge        = !!(fields.customfield_10096     ?? false);\n  const contact_type     = sel(fields.customfield_10057)   ?? 'Email';\n  const category         = sel(fields.customfield_10059)   ?? 'Category 51';\n  const assignment_group = sel(fields.customfield_10094)   ?? 'Group 70';\n  const sys_mod_count    = fields.comment?.total           ?? 0;\n\n  const created   = new Date(fields.created ?? new Date());\n  const updated   = new Date(fields.updated ?? new Date());\n  const hoursOpen = Math.max(0, (updated - created) / (1000 * 60 * 60));\n  const openHour  = created.getHours();\n  const openDay   = created.getDay();\n\n  console.log('EXTRACTED:', {\n    key, priority, impact, urgency,\n    contact_type, category, assignment_group, knowledge\n  });\n\n  return {\n    json: {\n      issue_key:            key,\n      priority,\n      impact,\n      urgency,\n      contact_type,\n      category,\n      assignment_group,\n      knowledge,\n      reassignment_count:   0,\n      reopen_count:         0,\n      sys_mod_count,\n      hours_open_to_update: Math.round(hoursOpen * 10) / 10,\n      open_hour:            openHour,\n      open_dayofweek:       openDay,\n      is_weekend:           [0, 6].includes(openDay) ? 1 : 0\n    }\n  };\n})();\n\nreturn result;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -96
+      ],
+      "id": "64e0271e-b4ec-4c03-bb49-a20dc5273c5e",
+      "name": "Code in JavaScript",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sla-model-api-1.onrender.com/predict",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        448,
+        -96
+      ],
+      "id": "42d7faeb-b2b4-4076-aec7-63901c5801ab",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ObibWKgtr84m2QVe",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "176a631e-ab8f-4cc2-bca7-3be0376e0907",
+              "leftValue": "={{ $json.risk_level }}",
+              "rightValue": "HIGH",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        -96
+      ],
+      "id": "54a97488-dab8-43dc-9772-a8aa182e704b",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "resource": "issueComment",
+        "issueKey": "={{ $('Code in JavaScript').item.json.issue_key }}",
+        "comment": "={{ \"SLA breach risk detected: \" + Math.round($('HTTP Request').item.json.breach_probability * 100) + \"% — please review and escalate if needed. Risk level: \" + $('HTTP Request').item.json.risk_level }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        -240
+      ],
+      "id": "9a9af81d-6cfe-4398-85df-707f149e69b8",
+      "name": "Add a comment",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "UTPXB5nLELjoJ3Kx",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "tchawap1@gmail.com",
+        "toEmail": "tchawap1@gmail.com",
+        "subject": "SLA -Breached Alert",
+        "html": "={{ `<div style=\"font-family:sans-serif;max-width:520px\"><h2 style=\"color:#993C1D\">SLA Breach Risk Alert</h2><table style=\"width:100%;border-collapse:collapse\"><tr><td style=\"padding:8px;border:1px solid #eee;color:#666\">Ticket</td><td style=\"padding:8px;border:1px solid #eee\"><b>${$('Code in JavaScript').item.json.issue_key}</b></td></tr><tr><td style=\"padding:8px;border:1px solid #eee;color:#666\">Risk level</td><td style=\"padding:8px;border:1px solid #eee;color:#993C1D\"><b>${$('HTTP Request').item.json.risk_level}</b></td></tr><tr><td style=\"padding:8px;border:1px solid #eee;color:#666\">Breach probability</td><td style=\"padding:8px;border:1px solid #eee\"><b>${Math.round($('HTTP Request').item.json.breach_probability * 100)}%</b></td></tr><tr><td style=\"padding:8px;border:1px solid #eee;color:#666\">Assigned to</td><td style=\"padding:8px;border:1px solid #eee\">${$('Code in JavaScript').item.json.assignment_group}</td></tr></table><p style=\"margin-top:16px;color:#666;font-size:13px\">Please review this ticket and escalate or reassign if needed. This alert was generated automatically by the SLA breach prediction model.</p></div>` }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1376,
+        -240
+      ],
+      "id": "7531c981-3117-4180-b487-0faeb0025e16",
+      "name": "Send an Email",
+      "webhookId": "2e4e12b5-6913-499b-85c1-ee5e53412085",
+      "credentials": {
+        "smtp": {
+          "id": "NwRqBJIuVHawYus9",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "issueKey": "={{ $('Code in JavaScript').item.json.issue_key }}",
+        "updateFields": {
+          "customFieldsUi": {
+            "customFieldsValues": [
+              {
+                "fieldId": {
+                  "__rl": true,
+                  "value": "customfield_10060",
+                  "mode": "list",
+                  "cachedResultName": "SLA Risk Score"
+                },
+                "fieldValue": "={{($('HTTP Request').item.json.breach_probability * 100) }}"
+              },
+              {
+                "fieldId": {
+                  "__rl": true,
+                  "value": "customfield_10061",
+                  "mode": "list",
+                  "cachedResultName": "SLA Risk Level"
+                },
+                "fieldValue": "={{\n  {\n    \"id\": $('HTTP Request').item.json.risk_level === \"HIGH\" ? \"10041\" :\n          $('HTTP Request').item.json.risk_level === \"MEDIUM\" ? \"10042\" :\n          $('HTTP Request').item.json.risk_level === \"LOW\" ? \"10043\" :\n          null\n  }\n}}"
+              }
+            ]
+          },
+          "labels": [
+            "sla-risk-high"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        928,
+        -48
+      ],
+      "id": "9eeeafc6-e9e6-4e2e-a942-27ff45d7bcea",
+      "name": "Update on Low-Medium",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "UTPXB5nLELjoJ3Kx",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "issueKey": "={{ $('Code in JavaScript').item.json.issue_key }}",
+        "updateFields": {
+          "customFieldsUi": {
+            "customFieldsValues": [
+              {
+                "fieldId": {
+                  "__rl": true,
+                  "value": "customfield_10060",
+                  "mode": "list",
+                  "cachedResultName": "SLA Risk Score"
+                },
+                "fieldValue": "={{($('HTTP Request').item.json.breach_probability * 100) }}"
+              },
+              {
+                "fieldId": {
+                  "__rl": true,
+                  "value": "customfield_10061",
+                  "mode": "list",
+                  "cachedResultName": "SLA Risk Level"
+                },
+                "fieldValue": "={{\n  {\n    \"id\": $('HTTP Request').item.json.risk_level === \"HIGH\" ? \"10041\" :\n          $('HTTP Request').item.json.risk_level === \"MEDIUM\" ? \"10042\" :\n          $('HTTP Request').item.json.risk_level === \"LOW\" ? \"10043\" :\n          null\n  }\n}}"
+              }
+            ]
+          },
+          "labels": [
+            "sla-risk-high"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.jira",
+      "typeVersion": 1,
+      "position": [
+        912,
+        -240
+      ],
+      "id": "17647370-974e-4e4b-a6cf-067609aab752",
+      "name": "Update an issue on High",
+      "credentials": {
+        "jiraSoftwareCloudApi": {
+          "id": "UTPXB5nLELjoJ3Kx",
+          "name": "Jira SW Cloud account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Jira Trigger": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update an issue on High",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update on Low-Medium",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add a comment": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update an issue on High": {
+      "main": [
+        [
+          {
+            "node": "Add a comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1
+  },
+  "versionId": "53467982-2336-4179-aefc-9b023cf1586a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5bfe68ae4c0e9a4592fbc06f0321be0ac8f682edb31f142fafe00ee9ccc73192"
+  },
+  "nodeGroups": [],
+  "id": "V8nOH91nDJNRbiub",
+  "tags": []
+}
